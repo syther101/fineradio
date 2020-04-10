@@ -1,0 +1,23 @@
+{
+  "name": "fine",
+  "version": "1.0.0",
+  "description": "A fine radio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ryan/fine.git"
+  },
+  "main": "index.js",
+  "dependencies": {
+    "vuepress": "^1.4.0"
+  },
+  "devDependencies": {
+    "@vuepress/plugin-blog": "^1.9.2"
+  },
+  "scripts": {
+    "dev": "vuepress dev",
+    "build": "vuepress build",
+    "eject": "vuepress eject ./"
+  },
+  "author": "",
+  "license": "ISC"
+}
