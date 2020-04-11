@@ -14,11 +14,10 @@ module.exports = {
                         itemPermalink: '/blog/:slug',
                     },
                     {
-                        id: 'episode',
-                        dirname: 'pages/_episodes',
-                        path: '/latest',
-                        // permalink is overridden in episode-permalinks plugin to support extra :show "template var"
-                        itemPermalink: '/shows/:show/episodes/:slug',
+                        id: 'hosts',
+                        dirname: 'pages/_hosts',
+                        path: '/hosts',
+                        itemPermalink: '/hosts/:slug'
                     },
                     {
                         id: 'show',
@@ -27,11 +26,12 @@ module.exports = {
                         itemPermalink: '/shows/:slug'
                     },
                     {
-                        id: 'hosts',
-                        dirname: 'pages/_hosts',
-                        path: '/hosts',
-                        itemPermalink: '/hosts/:slug'
-                    }
+                        id: 'episode',
+                        dirname: 'pages/_episodes',
+                        path: '/latest',
+                        // permalink is overridden in episode-permalinks plugin to support extra :show "template var"
+                        itemPermalink: '/shows/:show/episodes/:slug',
+                    },
                 ],
                 frontmatters: [
                     {
