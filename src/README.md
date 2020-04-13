@@ -17,4 +17,21 @@ footer: MIT Licensed | Copyright © 2018-present Evan You
 
 # Hello VuePress
 
+<video style="width: 100%;" controls src="http://34.71.9.144/stream.m3u8"></video>
+
+<!-- <iframe
+    src="https://player.twitch.tv/?ryannh&parent=fine.radio"
+    frameborder="0"
+    scrolling="no"
+    allowfullscreen="false" style="width: 100%;height: 540px;">
+</iframe>
+
+<iframe frameborder="0"
+        scrolling="no"
+        id="chat_embed"
+        src="https://www.twitch.tv/embed/ryannh/chat?darkpopout&parent=fine.radio"
+        height="500"
+        width="350">
+</iframe> -->
+
 <episode showAlias="pres" />
