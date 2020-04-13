@@ -15,7 +15,7 @@
   },
   "scripts": {
     "dev": "vuepress dev",
-    "build": "vuepress build",
+    "build": "vuepress build pages",
     "eject": "vuepress eject ./"
   },
   "author": "",
