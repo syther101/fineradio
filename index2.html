@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingEl = document.getElementById('loading')
   const playBtn = document.getElementById('playPause')
 
-  // --- Create player ---
+  // --- Create player (MediaElement = stable on iOS) ---
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     backend: 'MediaElement',
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     normalize: true,
   })
 
-  // --- Resume AudioContext on iOS ---
+  // --- Resume AudioContext on iOS user gesture ---
   ;['touchstart', 'touchmove', 'click'].forEach(evt => {
     document.addEventListener(evt, () => {
       const ctx = wavesurfer?.backend?.getAudioContext?.()
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // --- Hide loader when ready ---
-  ;['ready', 'waveform-ready', 'decode', 'play'].forEach(evt => {
+  ;['ready', 'decode', 'waveform-ready', 'play'].forEach(evt => {
     wavesurfer.on(evt, () => {
       console.log('✅ Event fired:', evt)
       hideLoader()
@@ -202,41 +202,34 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // ==============================================================
-  //  SAVE + RESTORE POSITION (with visual pre-seek)
+  //  SAVE + RESTORE POSITION (visual + real seek)
   // ==============================================================
   let pendingSeek = null
   let lastSave = 0
   let preSeekApplied = false
 
-  // Queue saved position after waveform ready
-  wavesurfer.on('ready', () => {
+  // Queue saved position as soon as waveform drawn
+  wavesurfer.on('waveform-ready', () => {
     const raw = localStorage.getItem(STORAGE_KEY)
     const saved = raw ? parseFloat(raw) : NaN
     if (!raw || isNaN(saved)) {
       console.log('ℹ️ No saved position found')
       return
     }
-    pendingSeek = saved
-    console.log('💾 Queued saved position:', pendingSeek)
 
-    // Visually show this position immediately (without actually seeking audio)
+    pendingSeek = saved
     const frac = saved > 1 ? 0 : Math.min(Math.max(saved, 0), 1)
 
-    // Wait until drawer exists before applying
-    const tryPreseek = () => {
-      if (wavesurfer.drawer?.progress) {
-        wavesurfer.drawer.progress(frac)
-        preSeekApplied = true
-        console.log(`🎨 Visually pre-seeked waveform to ${(frac * 100).toFixed(1)}%`)
-      } else {
-        console.log('⌛ Drawer not ready yet, retrying pre-seek...')
-        setTimeout(tryPreseek, 100)
-      }
+    if (wavesurfer.drawer?.progress) {
+      wavesurfer.drawer.progress(frac)
+      preSeekApplied = true
+      console.log(`🎨 Visually pre-seeked waveform to ${(frac * 100).toFixed(1)}%`)
+    } else {
+      console.warn('⚠️ Drawer still missing during waveform-ready')
     }
-    tryPreseek()
   })
 
-  // Apply pending seek once playable (iOS-safe)
+  // Apply real seek once playable (iOS-safe)
   function applyPendingSeekOnce(force = false) {
     if (pendingSeek == null) return
     const dur = wavesurfer.getDuration()
@@ -245,11 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const isSeconds = pendingSeek > 1
     const t = isSeconds ? pendingSeek : pendingSeek * dur
     const frac = Math.min(Math.max(t / dur, 0), 1)
-    if (!force && preSeekApplied) {
-      console.log(`✅ Syncing real seek now at ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
-    } else {
-      console.log(`✅ Applying seek directly at ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
-    }
+    console.log(`🎧 Applying actual seek → ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
     wavesurfer.seekTo(frac)
     pendingSeek = null
   }
@@ -257,7 +246,7 @@ document.addEventListener('DOMContentLoaded', () => {
   wavesurfer.on('canplay', () => applyPendingSeekOnce(true))
   wavesurfer.on('play', () => applyPendingSeekOnce(true))
 
-  // Periodic save (every 5s)
+  // --- Periodic save every 5 s ---
   wavesurfer.on('audioprocess', () => {
     const dur = wavesurfer.getDuration()
     const now = Date.now()
@@ -265,11 +254,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (now - lastSave < 5000) return
     lastSave = now
     const pos = wavesurfer.getCurrentTime() / dur
-    console.log(`💾 Saving progress... time=${wavesurfer.getCurrentTime().toFixed(1)}s, pos=${(pos * 100).toFixed(1)}%`)
+    console.log(`💾 Saved progress at ${(pos * 100).toFixed(1)}%`)
     try {
       localStorage.setItem(STORAGE_KEY, pos.toString())
     } catch (e) {
-      console.warn('⚠️ Could not save to localStorage:', e)
+      console.warn('⚠️ localStorage save failed:', e)
     }
   })
 
