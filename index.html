@@ -24,6 +24,36 @@
     #waveform:hover {
       cursor: pointer;
     }
+
+/* Simple centered loading indicator */
+#loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1rem;
+  color: #aaa;
+  text-align: center;
+  pointer-events: none;
+}
+
+    #loading::after {
+      content: " ";
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      border: 2px solid #aaa;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      margin-left: 0.5em;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
     button {
       margin-top: 1rem;
       padding: 0.5rem 1rem;
@@ -85,8 +115,9 @@
     <br>
     don't miss cryptics upcoming night with the elusive legend Shelly Parker on the 15th November.
   </p>
+  <div id="loading">Loading audio…</div>
   <div id="waveform"></div>
-  <button id="playPause">▶️ Play</button>
+  <button id="playPause" disabled>▶️ Play</button>
 
   <h2>some photos of the night</h2>
   <div class="photo-grid">
@@ -141,6 +172,21 @@
     wavesurfer.on('audioprocess', () => {
       const position = wavesurfer.getCurrentTime() / wavesurfer.getDuration()
       localStorage.setItem(STORAGE_KEY, position)
+    })
+
+    // Show loading indicator
+    wavesurfer.on('loading', (progress) => {
+      loadingEl.style.display = 'block'
+      loadingEl.textContent = `Loading audio… ${progress}%`
+    })
+    
+    // Hide when ready
+    wavesurfer.on('ready', () => {
+      loadingEl.style.display = 'none'
+      playBtn.disabled = false
+    
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) wavesurfer.seekTo(parseFloat(saved))
     })
 
     // Play/pause button
