@@ -151,13 +151,12 @@
 document.addEventListener('DOMContentLoaded', () => {
   const AUDIO_FILE = 'https://dl.dropboxusercontent.com/scl/fi/kquh0uw368eews9tyiwxa/erin.m4a?rlkey=y5bopb3shjajpgm4iu9w94sj3'
   const PEAKS_FILE = 'erin-peaks.json'
-  const baseUrl = AUDIO_FILE.split('?')[0]
-  const STORAGE_KEY = 'audio-position-' + baseUrl
+  const STORAGE_KEY = 'audio-position-' + AUDIO_FILE.split('?')[0]
 
   const loadingEl = document.getElementById('loading')
   const playBtn = document.getElementById('playPause')
 
-  // --- Create player (MediaElement backend for iOS stability) ---
+  // --- Create player ---
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     backend: 'MediaElement',
@@ -203,13 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // ==============================================================
-  //  SAVE + RESTORE POSITION (iOS-safe)
+  //  SEEK MANAGEMENT (visual + functional)
   // ==============================================================
-  let pendingSeek = null
-  let appliedSeek = false
-  let lastSave = 0
+  let savedPosition = null
+  let hasSeekApplied = false
 
-  // Show visual pre-seek once waveform drawn
+  // Restore saved progress when waveform ready
   wavesurfer.on('waveform-ready', () => {
     const raw = localStorage.getItem(STORAGE_KEY)
     const saved = raw ? parseFloat(raw) : NaN
@@ -218,81 +216,86 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
 
-    pendingSeek = saved
+    savedPosition = saved
+    console.log(`💾 Found saved position: ${saved}`)
+
+    // Visually show progress immediately
     const frac = saved > 1 ? 0 : Math.min(Math.max(saved, 0), 1)
     if (wavesurfer.drawer?.progress) {
       wavesurfer.drawer.progress(frac)
-      console.log(`🎨 Visually pre-seeked waveform to ${(frac * 100).toFixed(1)}%`)
+      console.log(`🎨 Pre-seeked waveform visually to ${(frac * 100).toFixed(1)}%`)
     }
   })
 
-  // --- Robust actual seek (after media is playable) ---
-  function tryApplyPendingSeek() {
-    if (pendingSeek == null || appliedSeek) return
+  // --- Unified setSeek helper (works everywhere) ---
+  function setSeek() {
+    if (savedPosition == null || hasSeekApplied) return
     const dur = wavesurfer.getDuration()
-    if (!dur || !isFinite(dur) || dur <= 0) return
-
-    const isSeconds = pendingSeek > 1
-    const t = isSeconds ? pendingSeek : pendingSeek * dur
-    const frac = Math.min(Math.max(t / dur, 0), 1)
-    console.log(`🎧 Applying seek to ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
-    wavesurfer.seekTo(frac)
-    appliedSeek = true
-    pendingSeek = null
-  }
-
-  // Retry seek on multiple safe events (covers iOS timing)
-  wavesurfer.on('ready', tryApplyPendingSeek)
-  wavesurfer.on('canplay', tryApplyPendingSeek)
-  wavesurfer.on('play', tryApplyPendingSeek)
-  wavesurfer.on('audioprocess', tryApplyPendingSeek)
-
-  // --- Save progress every 5 s (MediaElement timeupdate) ---
-  // --- Save progress every 5s once backend.media is ready ---
-function setupProgressSaver() {
-  const mediaEl = wavesurfer.backend?.media
-  if (!mediaEl) {
-    console.log('⌛ Waiting for backend.media...')
-    setTimeout(setupProgressSaver, 300)
-    return
-  }
-
-  console.log('✅ Media element ready for progress saving')
-  let lastSave = 0
-
-  mediaEl.addEventListener('timeupdate', () => {
-    const dur = mediaEl.duration
-    if (!dur || !isFinite(dur) || dur <= 0) return
-    const now = Date.now()
-    if (now - lastSave < 5000) return // throttle saves
-    lastSave = now
-
-    const pos = mediaEl.currentTime / dur
-    console.log(`💾 Saving progress ${(pos * 100).toFixed(1)}%`)
-    try {
-      localStorage.setItem(STORAGE_KEY, pos.toString())
-    } catch (e) {
-      console.warn('⚠️ localStorage save failed:', e)
+    if (!dur || !isFinite(dur) || dur <= 0) {
+      console.log('⏳ Waiting for duration...')
+      setTimeout(setSeek, 200)
+      return
     }
-  })
-}
 
-// Call after peaks/audio start loading
-wavesurfer.on('ready', setupProgressSaver)
-wavesurfer.on('waveform-ready', setupProgressSaver)
+    const isSeconds = savedPosition > 1
+    const t = isSeconds ? savedPosition : savedPosition * dur
+    const frac = Math.min(Math.max(t / dur, 0), 1)
+    console.log(`🎧 Applying seek → ${t.toFixed(2)}s (${(frac * 100).toFixed(1)}%)`)
+    wavesurfer.seekTo(frac)
+    hasSeekApplied = true
+    savedPosition = null
+  }
 
+  // --- Apply seek when allowed (covers iOS timing quirks) ---
+  wavesurfer.on('ready', setSeek)
+  wavesurfer.on('canplay', setSeek)
+  wavesurfer.on('play', setSeek)
+  wavesurfer.on('audioprocess', setSeek)
+
+  // ==============================================================
+  //  SAVE PROGRESS (throttled every 5s)
+  // ==============================================================
+  function setupProgressSaver() {
+    const mediaEl = wavesurfer.backend?.media
+    if (!mediaEl) {
+      console.log('⌛ Waiting for backend.media...')
+      setTimeout(setupProgressSaver, 300)
+      return
+    }
+
+    console.log('✅ Media element ready for progress saving')
+    let lastSave = 0
+
+    mediaEl.addEventListener('timeupdate', () => {
+      const dur = mediaEl.duration
+      if (!dur || !isFinite(dur) || dur <= 0) return
+      const now = Date.now()
+      if (now - lastSave < 5000) return
+      lastSave = now
+
+      const pos = mediaEl.currentTime / dur
+      console.log(`💾 Saving progress ${(pos * 100).toFixed(1)}%`)
+      try {
+        localStorage.setItem(STORAGE_KEY, pos.toString())
+      } catch (e) {
+        console.warn('⚠️ localStorage save failed:', e)
+      }
+    })
+  }
+
+  wavesurfer.on('ready', setupProgressSaver)
 
   // ==============================================================
   //  PLAY / PAUSE BUTTON
   // ==============================================================
   playBtn.addEventListener('click', () => {
-    tryApplyPendingSeek() // ensure seek before play
+    setSeek() // ensure we seek right before playback
     wavesurfer.playPause()
     playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
   })
 
   // ==============================================================
-  //  TOUCH + POINTER SCRUBBING (iOS-safe)
+  //  TOUCH + POINTER SCRUBBING
   // ==============================================================
   const wrapper = wavesurfer.drawer?.wrapper
   if (wrapper) {
@@ -309,17 +312,6 @@ wavesurfer.on('waveform-ready', setupProgressSaver)
     wrapper.addEventListener('pointermove', e => { if (dragging) { e.preventDefault(); seekAt(e.clientX) } }, { passive: false })
     wrapper.addEventListener('pointerup', () => dragging = false)
     wrapper.addEventListener('pointercancel', () => dragging = false)
-
-    // fallback for older iOS
-    wrapper.addEventListener('touchmove', e => {
-      if (!e.touches?.length) return
-      e.preventDefault()
-      seekAt(e.touches[0].clientX)
-    }, { passive: false })
-    wrapper.addEventListener('touchend', e => {
-      const t = e.changedTouches?.[0]
-      if (t) seekAt(t.clientX)
-    }, { passive: false })
   }
 
   // ==============================================================
