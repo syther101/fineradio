@@ -123,6 +123,12 @@
     // Load audio
     wavesurfer.load(AUDIO_FILE)
 
+    // Unlock audio context on user tap
+    document.addEventListener('touchstart', () => {
+      const ctx = wavesurfer.backend.getAudioContext?.()
+      if (ctx && ctx.state === 'suspended') ctx.resume()
+    }, { once: true })
+
     // Resume playback position
     wavesurfer.on('ready', () => {
       const savedPosition = localStorage.getItem(STORAGE_KEY)
