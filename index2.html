@@ -146,20 +146,20 @@
   <div id="lightbox">
     <img id="lightbox-img" src="" alt="">
   </div>
-
+  
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const AUDIO_FILE = 'https://dl.dropboxusercontent.com/scl/fi/kquh0uw368eews9tyiwxa/erin.m4a?rlkey=y5bopb3shjajpgm4iu9w94sj3'
   const PEAKS_FILE = 'erin-peaks.json'
-  const STORAGE_KEY = 'audio-position-' + AUDIO_FILE.split('?')[0]
+  const STORAGE_KEY = 'audio-position-' + AUDIO_FILE
 
   const loadingEl = document.getElementById('loading')
   const playBtn = document.getElementById('playPause')
 
-  // --- Create player ---
+  // --- Create player (force MediaElement backend for iOS stability) ---
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
-    backend: 'MediaElement', // stable for iOS, doesn’t decode huge file
+    backend: 'MediaElement',
     waveColor: '#C0B4BD',
     progressColor: '#4caf50',
     height: 200,
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     normalize: true,
   })
 
-  // --- Resume AudioContext on iOS user gesture ---
+  // --- Resume AudioContext on iOS user gesture (safety) ---
   ;['touchstart', 'touchmove', 'click'].forEach(evt => {
     document.addEventListener(evt, () => {
       const ctx = wavesurfer?.backend?.getAudioContext?.()
@@ -194,7 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // --- Hide loader when ready ---
-  ;['ready', 'decode', 'waveform-ready', 'play'].forEach(evt => {
+  ;['ready', 'waveform-ready', 'decode', 'play'].forEach(evt => {
     wavesurfer.on(evt, () => {
       console.log('✅ Event fired:', evt)
       hideLoader()
@@ -202,64 +202,46 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // ==============================================================
-  //  SEEK MANAGEMENT (visual + functional)
+  //  SAVE + RESTORE POSITION (iOS-compatible)
   // ==============================================================
-  let savedPosition = null
-  let hasSeekApplied = false
+  let pendingSeek = null // queued seek fraction (0–1 or seconds)
+  let lastSave = 0
 
-  // Restore saved progress visually once waveform drawn
-  wavesurfer.on('waveform-ready', () => {
+  // Queue saved position after waveform ready
+  wavesurfer.on('ready', () => {
     const raw = localStorage.getItem(STORAGE_KEY)
     const saved = raw ? parseFloat(raw) : NaN
     if (!raw || isNaN(saved)) {
       console.log('ℹ️ No saved position found')
       return
     }
-
-    savedPosition = saved
-    console.log(`💾 Found saved position: ${saved}`)
-    const frac = saved > 1 ? 0 : Math.min(Math.max(saved, 0), 1)
-    if (wavesurfer.drawer?.progress) {
-      wavesurfer.drawer.progress(frac)
-      console.log(`🎨 Pre-seeked waveform visually to ${(frac * 100).toFixed(1)}%`)
-    }
+    pendingSeek = saved
+    console.log('💾 Queued saved position:', pendingSeek)
   })
 
-  // --- Unified setSeek helper ---
-  function setSeek() {
-    if (savedPosition == null || hasSeekApplied) return
+  // Apply queued seek once playable (iOS-safe)
+  function applyPendingSeekOnce() {
+    if (pendingSeek == null) return
     const dur = wavesurfer.getDuration()
-    if (!dur || !isFinite(dur) || dur <= 0) {
-      setTimeout(setSeek, 250)
-      return
-    }
-
-    const isSeconds = savedPosition > 1
-    const t = isSeconds ? savedPosition : savedPosition * dur
+    if (!dur || !isFinite(dur) || dur <= 0) return
+    const isSeconds = pendingSeek > 1
+    const t = isSeconds ? pendingSeek : pendingSeek * dur
     const frac = Math.min(Math.max(t / dur, 0), 1)
-    console.log(`🎧 Applying seek → ${t.toFixed(2)}s (${(frac * 100).toFixed(1)}%)`)
+    console.log(`✅ Applying pending seek → ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
     wavesurfer.seekTo(frac)
-    hasSeekApplied = true
-    savedPosition = null
+    pendingSeek = null
   }
 
-  // Apply seek on several safe events (for iOS)
-  wavesurfer.on('ready', setSeek)
-  wavesurfer.on('canplay', setSeek)
-  wavesurfer.on('play', setSeek)
-  wavesurfer.on('audioprocess', setSeek)
+  wavesurfer.on('canplay', applyPendingSeekOnce)
+  wavesurfer.on('play', applyPendingSeekOnce)
 
-  // ==============================================================
-  //  SAVE PROGRESS (every 5s via audioprocess)
-  // ==============================================================
-  let lastSave = 0
+  // Periodic save (every 5s)
   wavesurfer.on('audioprocess', () => {
     const dur = wavesurfer.getDuration()
     const now = Date.now()
     if (!dur || !isFinite(dur) || dur <= 0) return
     if (now - lastSave < 5000) return
     lastSave = now
-
     const pos = wavesurfer.getCurrentTime() / dur
     console.log(`💾 Saving progress... time=${wavesurfer.getCurrentTime().toFixed(1)}s, pos=${(pos * 100).toFixed(1)}%`)
     try {
@@ -273,13 +255,14 @@ document.addEventListener('DOMContentLoaded', () => {
   //  PLAY / PAUSE BUTTON
   // ==============================================================
   playBtn.addEventListener('click', () => {
-    setSeek() // ensure seek before play
+    // ensure pending seek applied before play
+    applyPendingSeekOnce()
     wavesurfer.playPause()
     playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
   })
 
   // ==============================================================
-  //  TOUCH + POINTER SCRUBBING
+  //  TOUCH + POINTER SCRUBBING (iOS-safe)
   // ==============================================================
   const wrapper = wavesurfer.drawer?.wrapper
   if (wrapper) {
@@ -296,8 +279,29 @@ document.addEventListener('DOMContentLoaded', () => {
     wrapper.addEventListener('pointermove', e => { if (dragging) { e.preventDefault(); seekAt(e.clientX) } }, { passive: false })
     wrapper.addEventListener('pointerup', () => dragging = false)
     wrapper.addEventListener('pointercancel', () => dragging = false)
+
+    // fallback for older iOS
+    wrapper.addEventListener('touchmove', e => {
+      if (!e.touches?.length) return
+      e.preventDefault()
+      seekAt(e.touches[0].clientX)
+    }, { passive: false })
+    wrapper.addEventListener('touchend', e => {
+      const t = e.changedTouches?.[0]
+      if (t) seekAt(t.clientX)
+    }, { passive: false })
   }
 
+      // Hide when ready
+    // Function to safely hide loading
+    function seekIt() {
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) wavesurfer.seekTo(parseFloat(saved))
+    }
+
+    // Hide when ready (for most browsers)
+    wavesurfer.on('ready', seekIt)
+  
   // ==============================================================
   //  LOADER HELPERS
   // ==============================================================
@@ -314,6 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 })
 </script>
+
 
 
   <script>
