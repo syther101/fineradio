@@ -250,13 +250,32 @@ wavesurfer.on('ready', () => {
 
 
   // --- Save progress periodically ---
-  wavesurfer.on('audioprocess', () => {
-    const dur = wavesurfer.getDuration()
-    if (dur) {
-      const pos = wavesurfer.getCurrentTime() / dur
-      localStorage.setItem(STORAGE_KEY, pos.toString())
-    }
-  })
+  let lastSave = 0 // timestamp of last save (ms)
+
+wavesurfer.on('audioprocess', () => {
+  const dur = wavesurfer.getDuration()
+  const cur = wavesurfer.getCurrentTime()
+
+  // Skip if no valid duration yet
+  if (!dur || !isFinite(dur) || dur <= 0) return
+
+  // Only save every ~5 seconds (5000ms)
+  const now = Date.now()
+  if (now - lastSave < 5000) return
+
+  lastSave = now
+  const pos = cur / dur
+
+  // Debugging output
+  console.log(`💾 Saving progress... time=${cur.toFixed(1)}s, pos=${(pos * 100).toFixed(1)}%`)
+
+  try {
+    localStorage.setItem(STORAGE_KEY, pos.toString())
+  } catch (e) {
+    console.warn('⚠️ Could not save to localStorage:', e)
+  }
+})
+
 
   // --- Play / Pause ---
   playBtn.addEventListener('click', () => {
