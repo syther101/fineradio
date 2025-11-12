@@ -211,6 +211,9 @@ document.addEventListener('DOMContentLoaded', () => {
   wavesurfer.on('ready', () => {
     const raw = localStorage.getItem(STORAGE_KEY)
     const saved = raw ? parseFloat(raw) : NaN
+
+    if (saved) wavesurfer.seekTo(parseFloat(saved))
+    
     if (!raw || isNaN(saved)) {
       console.log('ℹ️ No saved position found')
       return
@@ -291,16 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
       if (t) seekAt(t.clientX)
     }, { passive: false })
   }
-
-      // Hide when ready
-    // Function to safely hide loading
-    function seekIt() {
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) wavesurfer.seekTo(parseFloat(saved))
-    }
-
-    // Hide when ready (for most browsers)
-    wavesurfer.on('ready', seekIt)
   
   // ==============================================================
   //  LOADER HELPERS
