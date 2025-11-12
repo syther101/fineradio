@@ -207,23 +207,27 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // --- Restore playback position when ready ---
-  wavesurfer.on('ready', () => {
-  const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
-  if (!saved || isNaN(saved)) return
+    wavesurfer.on('ready', () => {
+    const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
+    if (!saved || isNaN(saved)) return
 
-  const applySeek = () => {
-    const dur = wavesurfer.getDuration()
-    if (dur && dur > 0 && isFinite(dur)) {
-      console.log('✅ Restoring position', saved)
-      wavesurfer.seekTo(saved)
-    } else {
-      console.log('⚠️ Duration not ready, retrying...')
-      setTimeout(applySeek, 200)
+    const mediaEl = wavesurfer.backend.media
+
+    const trySeek = () => {
+      const dur = mediaEl.duration
+      if (dur && isFinite(dur) && dur > 0) {
+        console.log('✅ Restoring position', saved)
+        wavesurfer.seekTo(saved)
+        mediaEl.removeEventListener('loadedmetadata', trySeek)
+        mediaEl.removeEventListener('canplay', trySeek)
+        mediaEl.removeEventListener('durationchange', trySeek)
+      }
     }
-  }
 
-  applySeek()
-})
+    mediaEl.addEventListener('loadedmetadata', trySeek)
+    mediaEl.addEventListener('durationchange', trySeek)
+    mediaEl.addEventListener('canplay', trySeek)
+  })
 
   // --- Save progress periodically ---
   wavesurfer.on('audioprocess', () => {
