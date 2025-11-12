@@ -152,9 +152,6 @@
       responsive: true,
     })
 
-    // Load audio
-    wavesurfer.load(AUDIO_FILE)
-
     // Unlock audio context on user tap
     document.addEventListener('touchstart', () => {
       const ctx = wavesurfer.backend.getAudioContext?.()
@@ -196,6 +193,9 @@
       wavesurfer.playPause()
       playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
     })
+
+    // Load audio
+    wavesurfer.load(AUDIO_FILE)
   </script>
 
   <script>
