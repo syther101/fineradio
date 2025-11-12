@@ -160,26 +160,6 @@
       interact: true, // ensures touch events are bound
     })
 
-      // Resume AudioContext on first user interaction
-      const unlockEvents = ['touchstart', 'touchmove', 'click']
-      unlockEvents.forEach(evt => {
-        document.addEventListener(evt, () => {
-          const ctx = wavesurfer?.backend?.getAudioContext?.()
-          if (ctx && ctx.state === 'suspended') ctx.resume()
-        }, { passive: true, once: false })
-      })
-
-      // Optional: improve realtime scrubbing on iOS
-      const wrapper = wavesurfer.drawer?.wrapper
-      if (wrapper) {
-        wrapper.addEventListener('touchmove', (e) => {
-          const rect = wrapper.getBoundingClientRect()
-          const x = e.touches[0].clientX - rect.left
-          const progress = Math.max(0, Math.min(1, x / rect.width))
-          wavesurfer.seekTo(progress)
-        })
-      }
-
     // Unlock audio context on user tap
     document.addEventListener('touchstart', () => {
       const ctx = wavesurfer.backend.getAudioContext?.()
