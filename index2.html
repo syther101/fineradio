@@ -146,21 +146,25 @@
     <img id="lightbox-img" src="" alt="">
   </div>
   
+  <!-- Wavesurfer library -->
+<script src="https://unpkg.com/wavesurfer.js@6"></script>
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const AUDIO_FILE =
-    'https://dl.dropboxusercontent.com/scl/fi/kquh0uw368eews9tyiwxa/erin.m4a?rlkey=y5bopb3shjajpgm4iu9w94sj3';
-  const STORAGE_KEY = 'audio-position-' + AUDIO_FILE;
-  const loadingEl = document.getElementById('loading');
-  const playBtn = document.getElementById('playPause');
+  const AUDIO_FILE = 'erin.m4a'
+  const PEAKS_FILE = 'erin-peaks.json'
+  const STORAGE_KEY = 'audio-position-' + AUDIO_FILE
 
-  // Detect modern WebAudio support (use MediaElement fallback otherwise)
-  const testAudio = document.createElement('audio');
-  const canPlayAAC = !!testAudio.canPlayType('audio/mp4; codecs="mp4a.40.2"');
-  const supportsWebAudio = !!(window.AudioContext || window.webkitAudioContext);
-  const backend = supportsWebAudio && canPlayAAC ? 'WebAudio' : 'MediaElement';
+  const loadingEl = document.getElementById('loading')
+  const playBtn = document.getElementById('playPause')
 
-  // Create player
+  // Detect AAC and WebAudio support
+  const audioEl = document.createElement('audio')
+  const canPlayAAC = !!audioEl.canPlayType('audio/mp4; codecs="mp4a.40.2"')
+  const supportsWebAudio = !!(window.AudioContext || window.webkitAudioContext)
+  const backend = supportsWebAudio && canPlayAAC ? 'WebAudio' : 'MediaElement'
+
+  // Create Wavesurfer instance
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     backend,
@@ -169,93 +173,98 @@ document.addEventListener('DOMContentLoaded', () => {
     height: 200,
     responsive: true,
     interact: true,
-    // partialRender: true, // faster for large files
-    // minPxPerSec: 25,
-    // normalize: false,
-  });
+    partialRender: true, // more memory-efficient for long audio
+    minPxPerSec: 25,
+    normalize: false,
+  })
 
-  // Resume AudioContext on first user gesture (Safari/iOS requirement)
-  ['touchstart', 'touchmove', 'click'].forEach(evt => {
-    document.addEventListener(
-      evt,
-      () => {
-        const ctx = wavesurfer?.backend?.getAudioContext?.();
-        if (ctx && ctx.state === 'suspended') ctx.resume();
-      },
-      { passive: true }
-    );
-  });
+  // Resume AudioContext on first user gesture (iOS requirement)
+  ;['touchstart', 'touchmove', 'click'].forEach(evt => {
+    document.addEventListener(evt, () => {
+      const ctx = wavesurfer?.backend?.getAudioContext?.()
+      if (ctx && ctx.state === 'suspended') ctx.resume()
+    }, { passive: true })
+  })
 
-  // Restore playback position once audio is actually ready
-  let saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0');
-  wavesurfer.on('ready', () => {
-    const mediaEl = wavesurfer.backend?.media;
-    if (mediaEl) {
-      mediaEl.addEventListener(
-        'canplay',
-        () => {
-          if (saved && !isNaN(saved)) wavesurfer.seekTo(saved);
-        },
-        { once: true }
-      );
-    } else if (saved && !isNaN(saved)) {
-      wavesurfer.seekTo(saved);
-    }
-    hideLoader();
-  });
+  // Load pre-generated peaks
+  fetch(PEAKS_FILE)
+    .then(res => res.json())
+    .then(peaks => {
+      showLoader('Loading waveform...')
+      wavesurfer.load(AUDIO_FILE, peaks.data || peaks)
+    })
+    .catch(err => {
+      console.error('Error loading peaks:', err)
+      showLoader('Error loading peaks')
+    })
 
-  // Save progress periodically
-  wavesurfer.on('audioprocess', () => {
-    const dur = wavesurfer.getDuration();
-    if (dur) {
-      const pos = wavesurfer.getCurrentTime() / dur;
-      localStorage.setItem(STORAGE_KEY, pos.toString());
-    }
-  });
-
-  // Basic loading indicator
+  // Show loading progress
   wavesurfer.on('loading', progress => {
-    if (!loadingEl) return;
-    loadingEl.style.display = 'block';
-    loadingEl.textContent = `Loading audio… ${Math.round(progress)}%`;
-  });
+    showLoader(`Loading audio… ${Math.round(progress)}%`)
+  })
+
+  // Hide loader once ready
+  wavesurfer.on('ready', () => {
+    hideLoader()
+    playBtn.disabled = false
+
+    // Restore saved position if available
+    const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
+    const mediaEl = wavesurfer.backend?.media
+    if (saved && !isNaN(saved)) {
+      const restore = () => {
+        wavesurfer.seekTo(saved)
+        mediaEl?.removeEventListener('canplay', restore)
+      }
+      if (mediaEl) mediaEl.addEventListener('canplay', restore)
+      else wavesurfer.seekTo(saved)
+    }
+  })
+
+  // Save position periodically
+  wavesurfer.on('audioprocess', () => {
+    const dur = wavesurfer.getDuration()
+    if (dur) {
+      const pos = wavesurfer.getCurrentTime() / dur
+      localStorage.setItem(STORAGE_KEY, pos.toString())
+    }
+  })
+
+  // Play/pause button
+  playBtn.addEventListener('click', () => {
+    wavesurfer.playPause()
+    playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
+  })
+
+  // Touch scrubbing (safe for iOS)
+  const wrapper = wavesurfer.drawer?.wrapper
+  if (wrapper) {
+    let touching = false
+    wrapper.addEventListener('touchstart', () => (touching = true), { passive: true })
+    wrapper.addEventListener('touchend', e => {
+      if (!touching) return
+      touching = false
+      const rect = wrapper.getBoundingClientRect()
+      const x = e.changedTouches[0].clientX - rect.left
+      const progress = Math.max(0, Math.min(1, x / rect.width))
+      wavesurfer.seekTo(progress)
+    }, { passive: true })
+  }
+
+  // Loader helpers
+  function showLoader(text) {
+    if (loadingEl) {
+      loadingEl.style.display = 'block'
+      loadingEl.textContent = text
+    }
+  }
 
   function hideLoader() {
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (playBtn) playBtn.disabled = false;
+    if (loadingEl) loadingEl.style.display = 'none'
   }
-
-  // Handle play/pause
-  if (playBtn) {
-    playBtn.addEventListener('click', () => {
-      wavesurfer.playPause();
-      playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play';
-    });
-  }
-
-  // Smooth visual scrubbing (safe for iOS)
-  const wrapper = wavesurfer.drawer?.wrapper;
-  if (wrapper) {
-    let touching = false;
-    wrapper.addEventListener('touchstart', () => (touching = true), { passive: true });
-    wrapper.addEventListener(
-      'touchend',
-      e => {
-        if (!touching) return;
-        touching = false;
-        const rect = wrapper.getBoundingClientRect();
-        const x = e.changedTouches[0].clientX - rect.left;
-        const progress = Math.max(0, Math.min(1, x / rect.width));
-        wavesurfer.seekTo(progress);
-      },
-      { passive: true }
-    );
-  }
-
-  // Load AAC audio file
-  wavesurfer.load(AUDIO_FILE);
-});
+})
 </script>
+
 
 
   <script>
