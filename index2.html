@@ -159,7 +159,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const audioEl = document.createElement('audio')
   const canPlayAAC = !!audioEl.canPlayType('audio/mp4; codecs="mp4a.40.2"')
   const supportsWebAudio = !!(window.AudioContext || window.webkitAudioContext)
-  const backend = supportsWebAudio && canPlayAAC ? 'WebAudio' : 'MediaElement'
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const backend = isIOS ? 'MediaElement' :
+    (supportsWebAudio && canPlayAAC ? 'WebAudio' : 'MediaElement')
 
   // Create player
   const wavesurfer = WaveSurfer.create({
