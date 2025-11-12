@@ -152,12 +152,10 @@
     // Create the player
     const wavesurfer = WaveSurfer.create({
       container: '#waveform',
-      backend: isModernSafari ? 'WebAudio' : 'MediaElement',
       waveColor: '#ccc',
       progressColor: '#4caf50',
       height: 100,
       responsive: true,
-      interact: true, // ensures touch events are bound
     })
 
     // Unlock audio context on user tap
