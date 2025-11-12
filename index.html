@@ -190,7 +190,6 @@
     })
 
     // Play/pause button
-    const playBtn = document.getElementById('playPause')
     playBtn.addEventListener('click', () => {
       wavesurfer.playPause()
       playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
