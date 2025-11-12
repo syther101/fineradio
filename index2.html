@@ -183,6 +183,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true })
   })
 
+  // --- Loading progress ---
+  wavesurfer.on('loading', progress => {
+    showLoader(`Loading audio… ${Math.round(progress)}%`)
+  })
+  
   // --- Load peaks + audio ---
   fetch(PEAKS_FILE)
     .then(res => res.json())
@@ -195,11 +200,6 @@ document.addEventListener('DOMContentLoaded', () => {
       showLoader('Error loading peaks')
     })
 
-  // --- Loading progress ---
-  wavesurfer.on('loading', progress => {
-    showLoader(`Loading audio… ${Math.round(progress)}%`)
-  })
-
   // --- Hide loader when ready ---
   ;['ready', 'waveform-ready', 'decode', 'play'].forEach(evt => {
     wavesurfer.on(evt, () => {
@@ -210,12 +210,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Restore playback position when ready ---
   wavesurfer.on('ready', () => {
-    const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
+  const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
+  if (!saved || isNaN(saved)) return
+
+  const applySeek = () => {
     const dur = wavesurfer.getDuration()
-    if (saved && !isNaN(saved) && dur > 0) {
+    if (dur && dur > 0 && isFinite(dur)) {
+      console.log('✅ Restoring position', saved)
       wavesurfer.seekTo(saved)
+    } else {
+      console.log('⚠️ Duration not ready, retrying...')
+      setTimeout(applySeek, 200)
     }
-  })
+  }
+
+  applySeek()
+})
 
   // --- Save progress periodically ---
   wavesurfer.on('audioprocess', () => {
