@@ -6,6 +6,7 @@
   <script src="https://unpkg.com/wavesurfer.js"></script>
   <style>
     body {
+      background: #2A2B2E;
       font-family: sans-serif;
       max-width: 800px;
       margin-top: 3rem;
@@ -14,6 +15,14 @@
       padding: 0 24px;
     }
 
+    h1, h2 {
+      color: #FFE5FB;
+    }
+
+    p {
+      color: #C0B4BD;
+    }
+    
     .description {
       max-width: 800px;
     }
@@ -152,7 +161,7 @@
     // Create the player
     const wavesurfer = WaveSurfer.create({
       container: '#waveform',
-      waveColor: '#ccc',
+      waveColor: '#2A2B2E',
       progressColor: '#4caf50',
       height: 200,
       responsive: true,
