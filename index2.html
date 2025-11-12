@@ -207,63 +207,57 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
 
-  // --- Restore saved playback position safely (MediaElement backend) ---
+// --- Restore saved playback position (MediaElement backend) ---
 wavesurfer.on('ready', () => {
-  const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
-  if (!saved || isNaN(saved)) {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  const saved = parseFloat(raw)
+  if (!raw || isNaN(saved)) {
     console.log('ℹ️ No saved position found')
     return
   }
-
   console.log('💾 Found saved position fraction:', saved)
 
-  const backend = wavesurfer.backend
-  const waitForMedia = () => {
-    const mediaEl = backend?.media
+  // defer until backend.media definitely exists
+  setTimeout(() => {
+    const mediaEl = wavesurfer.backend?.media
     if (!mediaEl) {
-      // Backend may not yet be attached
-      console.log('⏳ Waiting for backend.media...')
-      return setTimeout(waitForMedia, 150)
+      console.warn('⚠️ mediaEl still missing after ready()')
+      return
     }
 
-    // Once we have an <audio> element, wait for it to be ready
     const applySeek = () => {
       const dur = mediaEl.duration || wavesurfer.getDuration()
       if (dur && isFinite(dur) && dur > 0) {
         const time = saved > 1 ? saved : saved * dur
-        const fraction = Math.min(Math.max(time / dur, 0), 1)
+        const frac = Math.min(Math.max(time / dur, 0), 1)
         console.log(
-          `✅ Restoring position: ${time.toFixed(1)}s / ${dur.toFixed(
+          `✅ Restoring position → ${time.toFixed(1)}s / ${dur.toFixed(
             1
-          )}s (${(fraction * 100).toFixed(1)}%)`
+          )}s (${(frac * 100).toFixed(1)}%)`
         )
-        wavesurfer.seekTo(fraction)
+        wavesurfer.seekTo(frac)
         cleanup()
       }
     }
 
     const cleanup = () => {
       mediaEl.removeEventListener('loadedmetadata', applySeek)
-      mediaEl.removeEventListener('canplay', applySeek)
       mediaEl.removeEventListener('durationchange', applySeek)
+      mediaEl.removeEventListener('canplay', applySeek)
       clearInterval(poll)
     }
 
-    // Attempt immediately
+    // Try once and keep polling briefly
     applySeek()
-
-    // Poll until duration appears
     const poll = setInterval(applySeek, 300)
-    setTimeout(cleanup, 20000) // stop polling after 20s
+    setTimeout(cleanup, 20000)
 
-    // Also trigger on safe browser events
     mediaEl.addEventListener('loadedmetadata', applySeek)
-    mediaEl.addEventListener('canplay', applySeek)
     mediaEl.addEventListener('durationchange', applySeek)
-  }
-
-  waitForMedia()
+    mediaEl.addEventListener('canplay', applySeek)
+  }, 0) // run on next tick
 })
+
 
 
   // --- Save progress periodically ---
