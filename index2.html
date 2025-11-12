@@ -221,9 +221,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Visually show this position immediately (without actually seeking audio)
     const frac = saved > 1 ? 0 : Math.min(Math.max(saved, 0), 1)
-    wavesurfer.drawer.progress(frac)
-    preSeekApplied = true
-    console.log(`🎨 Visually pre-seeked waveform to ${(frac * 100).toFixed(1)}%`)
+
+    // Wait until drawer exists before applying
+    const tryPreseek = () => {
+      if (wavesurfer.drawer?.progress) {
+        wavesurfer.drawer.progress(frac)
+        preSeekApplied = true
+        console.log(`🎨 Visually pre-seeked waveform to ${(frac * 100).toFixed(1)}%`)
+      } else {
+        console.log('⌛ Drawer not ready yet, retrying pre-seek...')
+        setTimeout(tryPreseek, 100)
+      }
+    }
+    tryPreseek()
   })
 
   // Apply pending seek once playable (iOS-safe)
