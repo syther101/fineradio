@@ -149,6 +149,7 @@
   <!-- Wavesurfer library -->
 <script src="https://unpkg.com/wavesurfer.js@6"></script>
 
+  <script src="https://unpkg.com/wavesurfer.js@6"></script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const AUDIO_FILE = 'erin.m4a'
@@ -158,13 +159,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingEl = document.getElementById('loading')
   const playBtn = document.getElementById('playPause')
 
-  // Detect AAC and WebAudio support
+  // Detect AAC + WebAudio support
   const audioEl = document.createElement('audio')
   const canPlayAAC = !!audioEl.canPlayType('audio/mp4; codecs="mp4a.40.2"')
   const supportsWebAudio = !!(window.AudioContext || window.webkitAudioContext)
   const backend = supportsWebAudio && canPlayAAC ? 'WebAudio' : 'MediaElement'
 
-  // Create Wavesurfer instance
+  // Create player
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     backend,
@@ -173,12 +174,12 @@ document.addEventListener('DOMContentLoaded', () => {
     height: 200,
     responsive: true,
     interact: true,
-    // partialRender: true, // more memory-efficient for long audio
-    // minPxPerSec: 25,
-    normalize: true,
+    partialRender: true,
+    minPxPerSec: 25,
+    normalize: false,
   })
 
-  // Resume AudioContext on first user gesture (iOS requirement)
+  // Resume AudioContext on iOS user gesture
   ;['touchstart', 'touchmove', 'click'].forEach(evt => {
     document.addEventListener(evt, () => {
       const ctx = wavesurfer?.backend?.getAudioContext?.()
@@ -186,42 +187,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true })
   })
 
-  // Load pre-generated peaks
+  // --- Load peaks + audio ---
   fetch(PEAKS_FILE)
     .then(res => res.json())
     .then(peaks => {
-      showLoader('Loading waveform...')
+      showLoader('Loading waveform…')
       wavesurfer.load(AUDIO_FILE, peaks.data || peaks)
     })
     .catch(err => {
-      console.error('Error loading peaks:', err)
+      console.error('❌ Peaks load error:', err)
       showLoader('Error loading peaks')
     })
 
-  // Show loading progress
+  // --- Loading progress ---
   wavesurfer.on('loading', progress => {
     showLoader(`Loading audio… ${Math.round(progress)}%`)
   })
 
-  // Hide loader once ready
-  wavesurfer.on('ready', () => {
-    hideLoader()
-    playBtn.disabled = false
+  // --- Hide loader when ready ---
+  ;['ready', 'waveform-ready', 'decode', 'play'].forEach(evt => {
+    wavesurfer.on(evt, () => {
+      console.log('✅ Event fired:', evt)
+      hideLoader()
+    })
+  })
 
-    // Restore saved position if available
+  // --- Restore playback position when ready ---
+  wavesurfer.on('ready', () => {
     const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
-    const mediaEl = wavesurfer.backend?.media
-    if (saved && !isNaN(saved)) {
-      const restore = () => {
-        wavesurfer.seekTo(saved)
-        mediaEl?.removeEventListener('canplay', restore)
-      }
-      if (mediaEl) mediaEl.addEventListener('canplay', restore)
-      else wavesurfer.seekTo(saved)
+    const dur = wavesurfer.getDuration()
+    if (saved && !isNaN(saved) && dur > 0) {
+      wavesurfer.seekTo(saved)
     }
   })
 
-  // Save position periodically
+  // --- Save progress periodically ---
   wavesurfer.on('audioprocess', () => {
     const dur = wavesurfer.getDuration()
     if (dur) {
@@ -230,13 +230,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
-  // Play/pause button
+  // --- Play / Pause ---
   playBtn.addEventListener('click', () => {
     wavesurfer.playPause()
     playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
   })
 
-  // Touch scrubbing (safe for iOS)
+  // --- Touch scrubbing for iOS ---
   const wrapper = wavesurfer.drawer?.wrapper
   if (wrapper) {
     let touching = false
@@ -251,7 +251,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, { passive: true })
   }
 
-  // Loader helpers
+  // --- Loader helpers ---
   function showLoader(text) {
     if (loadingEl) {
       loadingEl.style.display = 'block'
@@ -261,10 +261,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function hideLoader() {
     if (loadingEl) loadingEl.style.display = 'none'
+    if (playBtn) playBtn.disabled = false
   }
 })
 </script>
-
 
 
   <script>
