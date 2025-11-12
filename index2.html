@@ -159,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Create player ---
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
-    backend: 'MediaElement',
+    backend: 'MediaElement', // stable for iOS, doesn’t decode huge file
     waveColor: '#C0B4BD',
     progressColor: '#4caf50',
     height: 200,
@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let savedPosition = null
   let hasSeekApplied = false
 
-  // Restore saved progress when waveform ready
+  // Restore saved progress visually once waveform drawn
   wavesurfer.on('waveform-ready', () => {
     const raw = localStorage.getItem(STORAGE_KEY)
     const saved = raw ? parseFloat(raw) : NaN
@@ -218,8 +218,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     savedPosition = saved
     console.log(`💾 Found saved position: ${saved}`)
-
-    // Visually show progress immediately
     const frac = saved > 1 ? 0 : Math.min(Math.max(saved, 0), 1)
     if (wavesurfer.drawer?.progress) {
       wavesurfer.drawer.progress(frac)
@@ -227,13 +225,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
-  // --- Unified setSeek helper (works everywhere) ---
+  // --- Unified setSeek helper ---
   function setSeek() {
     if (savedPosition == null || hasSeekApplied) return
     const dur = wavesurfer.getDuration()
     if (!dur || !isFinite(dur) || dur <= 0) {
-      console.log('⏳ Waiting for duration...')
-      setTimeout(setSeek, 200)
+      setTimeout(setSeek, 250)
       return
     }
 
@@ -246,50 +243,37 @@ document.addEventListener('DOMContentLoaded', () => {
     savedPosition = null
   }
 
-  // --- Apply seek when allowed (covers iOS timing quirks) ---
+  // Apply seek on several safe events (for iOS)
   wavesurfer.on('ready', setSeek)
   wavesurfer.on('canplay', setSeek)
   wavesurfer.on('play', setSeek)
   wavesurfer.on('audioprocess', setSeek)
 
   // ==============================================================
-  //  SAVE PROGRESS (throttled every 5s)
+  //  SAVE PROGRESS (every 5s via audioprocess)
   // ==============================================================
-  function setupProgressSaver() {
-    const mediaEl = wavesurfer.backend?.media
-    if (!mediaEl) {
-      console.log('⌛ Waiting for backend.media...')
-      setTimeout(setupProgressSaver, 300)
-      return
+  let lastSave = 0
+  wavesurfer.on('audioprocess', () => {
+    const dur = wavesurfer.getDuration()
+    const now = Date.now()
+    if (!dur || !isFinite(dur) || dur <= 0) return
+    if (now - lastSave < 5000) return
+    lastSave = now
+
+    const pos = wavesurfer.getCurrentTime() / dur
+    console.log(`💾 Saving progress... time=${wavesurfer.getCurrentTime().toFixed(1)}s, pos=${(pos * 100).toFixed(1)}%`)
+    try {
+      localStorage.setItem(STORAGE_KEY, pos.toString())
+    } catch (e) {
+      console.warn('⚠️ Could not save to localStorage:', e)
     }
-
-    console.log('✅ Media element ready for progress saving')
-    let lastSave = 0
-
-    mediaEl.addEventListener('timeupdate', () => {
-      const dur = mediaEl.duration
-      if (!dur || !isFinite(dur) || dur <= 0) return
-      const now = Date.now()
-      if (now - lastSave < 5000) return
-      lastSave = now
-
-      const pos = mediaEl.currentTime / dur
-      console.log(`💾 Saving progress ${(pos * 100).toFixed(1)}%`)
-      try {
-        localStorage.setItem(STORAGE_KEY, pos.toString())
-      } catch (e) {
-        console.warn('⚠️ localStorage save failed:', e)
-      }
-    })
-  }
-
-  wavesurfer.on('ready', setupProgressSaver)
+  })
 
   // ==============================================================
   //  PLAY / PAUSE BUTTON
   // ==============================================================
   playBtn.addEventListener('click', () => {
-    setSeek() // ensure we seek right before playback
+    setSeek() // ensure seek before play
     wavesurfer.playPause()
     playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
   })
