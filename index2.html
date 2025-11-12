@@ -172,8 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
     height: 200,
     responsive: true,
     interact: true,
-    partialRender: true,
-    minPxPerSec: 25,
+    // partialRender: true,
+    // minPxPerSec: 25,
     normalize: true,
   })
 
@@ -183,11 +183,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const ctx = wavesurfer?.backend?.getAudioContext?.()
       if (ctx && ctx.state === 'suspended') ctx.resume()
     }, { passive: true })
-  })
-
-  // --- Loading progress ---
-  wavesurfer.on('loading', progress => {
-    showLoader(`Loading audio… ${Math.round(progress)}%`)
   })
   
   // --- Load peaks + audio ---
@@ -201,6 +196,11 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error('❌ Peaks load error:', err)
       showLoader('Error loading peaks')
     })
+
+  // --- Loading progress ---
+  wavesurfer.on('loading', progress => {
+    showLoader(`Loading audio… ${Math.round(progress)}%`)
+  })
 
   // --- Hide loader when ready ---
   ;['ready', 'waveform-ready', 'decode', 'play'].forEach(evt => {
