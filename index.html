@@ -154,14 +154,6 @@
       if (ctx && ctx.state === 'suspended') ctx.resume()
     }, { once: true })
 
-    // Resume playback position
-    wavesurfer.on('ready', () => {
-      const savedPosition = localStorage.getItem(STORAGE_KEY)
-      if (savedPosition) {
-        wavesurfer.seekTo(parseFloat(savedPosition))
-      }
-    })
-
     // Save playback progress every few seconds
     wavesurfer.on('audioprocess', () => {
       const position = wavesurfer.getCurrentTime() / wavesurfer.getDuration()
@@ -175,12 +167,24 @@
     })
     
     // Hide when ready
-    wavesurfer.on('ready', () => {
+    // Function to safely hide loading
+    function hideLoader() {
       loadingEl.style.display = 'none'
       playBtn.disabled = false
-    
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved) wavesurfer.seekTo(parseFloat(saved))
+    }
+
+    // Hide when ready (for most browsers)
+    wavesurfer.on('ready', hideLoader)
+    
+    // Fallback for Safari if 'ready' never fires
+    wavesurfer.on('waveform-ready', hideLoader)
+    wavesurfer.on('decode', hideLoader)
+    
+    // Also listen to underlying audio element (MediaElement backend)
+    wavesurfer.on('play', () => {
+      hideLoader()
     })
 
     // Play/pause button
