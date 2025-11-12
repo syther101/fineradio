@@ -207,27 +207,33 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // --- Restore playback position when ready ---
-    wavesurfer.on('ready', () => {
-    const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
-    if (!saved || isNaN(saved)) return
+  wavesurfer.on('ready', () => {
+  const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
+  if (!saved || isNaN(saved)) return
 
-    const mediaEl = wavesurfer.backend.media
+  const mediaEl = wavesurfer.backend.media
 
-    const trySeek = () => {
-      const dur = mediaEl.duration
-      if (dur && isFinite(dur) && dur > 0) {
-        console.log('✅ Restoring position', saved)
-        wavesurfer.seekTo(saved)
-        mediaEl.removeEventListener('loadedmetadata', trySeek)
-        mediaEl.removeEventListener('canplay', trySeek)
-        mediaEl.removeEventListener('durationchange', trySeek)
-      }
+  // A helper that retries until duration is available
+  const trySeek = () => {
+    const dur = mediaEl.duration
+    if (dur && isFinite(dur) && dur > 0) {
+      console.log('✅ Restoring position', saved)
+      wavesurfer.seekTo(saved)
+      // Seek applied, stop checking
+      clearInterval(seekInterval)
     }
+  }
 
-    mediaEl.addEventListener('loadedmetadata', trySeek)
-    mediaEl.addEventListener('durationchange', trySeek)
-    mediaEl.addEventListener('canplay', trySeek)
-  })
+  // Run immediately in case duration is already known
+  trySeek()
+
+  // Keep retrying every 250 ms until it succeeds
+  const seekInterval = setInterval(trySeek, 250)
+
+  // Also trigger once when the browser confirms metadata
+  mediaEl.addEventListener('loadedmetadata', trySeek, { once: true })
+  mediaEl.addEventListener('canplay', trySeek, { once: true })
+})
 
   // --- Save progress periodically ---
   wavesurfer.on('audioprocess', () => {
