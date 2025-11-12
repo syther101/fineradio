@@ -207,37 +207,49 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
 
-  // --- Restore playback position when ready ---
   // --- Restore saved playback position safely (MediaElement backend) ---
 wavesurfer.on('ready', () => {
   const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
-  if (!saved || isNaN(saved)) return
+  if (!saved || isNaN(saved)) {
+    console.log('ℹ️ No saved position found')
+    return
+  }
+
+  console.log('💾 Found saved position fraction:', saved)
 
   // Wait until backend + media element exist
   const waitForMedia = () => {
     const backend = wavesurfer.backend
     const mediaEl = backend && backend.media
     if (!mediaEl) {
-      // Backend not yet initialized, try again
+      console.log('⏳ Backend not ready, retrying...')
       setTimeout(waitForMedia, 200)
       return
     }
 
-    // Function to apply seek when duration is available
+    console.log('🎧 Media element ready, waiting for duration...')
+
     const applySeek = () => {
-      const dur = mediaEl.duration
+      const dur = mediaEl.duration || wavesurfer.getDuration()
       if (dur && isFinite(dur) && dur > 0) {
-        console.log('✅ Restoring position', saved)
-        wavesurfer.seekTo(saved)
+        const time = saved > 1 ? saved : saved * dur
+        const fraction = time / dur
+        console.log(
+          `✅ Restoring: duration=${dur.toFixed(2)}s, target=${time.toFixed(
+            2
+          )}s (${(fraction * 100).toFixed(1)}%)`
+        )
+        wavesurfer.seekTo(fraction)
         clearInterval(checkInterval)
       }
     }
 
-    // Try immediately
+    // Try immediately and keep retrying until duration appears
     applySeek()
+    const checkInterval = setInterval(applySeek, 300)
 
-    // Keep retrying every 200 ms until duration appears
-    const checkInterval = setInterval(applySeek, 200)
+    // Extra safety: stop retrying after ~30 seconds
+    setTimeout(() => clearInterval(checkInterval), 30000)
 
     // Also listen for media events that guarantee duration
     mediaEl.addEventListener('loadedmetadata', applySeek, { once: true })
@@ -247,6 +259,7 @@ wavesurfer.on('ready', () => {
 
   waitForMedia()
 })
+
 
 
   // --- Save progress periodically ---
