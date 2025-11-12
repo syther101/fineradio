@@ -188,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
     .then(res => res.json())
     .then(peaks => {
       showLoader('Loading waveform…')
-      wavesurfer.load(AUDIO_FILE, peaks.data || peaks)
+      wavesurfer.load(AUDIO_FILE, peaks)
     })
     .catch(err => {
       console.error('❌ Peaks load error:', err)
