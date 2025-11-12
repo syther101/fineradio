@@ -186,7 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
   fetch(PEAKS_FILE)
     .then(res => res.json())
     .then(peaks => {
-      showLoader('Loading waveform…')
+      showLoader('Loading audio…')
       wavesurfer.load(AUDIO_FILE, peaks.data || peaks)
     })
     .catch(err => {
