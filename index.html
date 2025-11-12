@@ -147,6 +147,7 @@
   </div>
   
   <script>
+    document.addEventListener('DOMContentLoaded', () => {
     const AUDIO_FILE = 'https://dl.dropboxusercontent.com/scl/fi/qjttn7jkikmd3gfecp5i6/erin.mp3?rlkey=idxh1wruerqzswjirlebitf2d'
     const STORAGE_KEY = 'audio-position-' + AUDIO_FILE
     const loadingEl = document.getElementById('loading')
@@ -235,6 +236,7 @@
 
     // Load audio
     wavesurfer.load(AUDIO_FILE)
+})
   </script>
 
   <script>
