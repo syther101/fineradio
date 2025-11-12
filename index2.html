@@ -248,12 +248,23 @@ document.addEventListener('DOMContentLoaded', () => {
   wavesurfer.on('audioprocess', tryApplyPendingSeek)
 
   // --- Save progress every 5 s (MediaElement timeupdate) ---
+  // --- Save progress every 5s once backend.media is ready ---
+function setupProgressSaver() {
   const mediaEl = wavesurfer.backend?.media
-  mediaEl?.addEventListener('timeupdate', () => {
+  if (!mediaEl) {
+    console.log('⌛ Waiting for backend.media...')
+    setTimeout(setupProgressSaver, 300)
+    return
+  }
+
+  console.log('✅ Media element ready for progress saving')
+  let lastSave = 0
+
+  mediaEl.addEventListener('timeupdate', () => {
     const dur = mediaEl.duration
     if (!dur || !isFinite(dur) || dur <= 0) return
     const now = Date.now()
-    if (now - lastSave < 5000) return
+    if (now - lastSave < 5000) return // throttle saves
     lastSave = now
 
     const pos = mediaEl.currentTime / dur
@@ -264,6 +275,12 @@ document.addEventListener('DOMContentLoaded', () => {
       console.warn('⚠️ localStorage save failed:', e)
     }
   })
+}
+
+// Call after peaks/audio start loading
+wavesurfer.on('ready', setupProgressSaver)
+wavesurfer.on('waveform-ready', setupProgressSaver)
+
 
   // ==============================================================
   //  PLAY / PAUSE BUTTON
