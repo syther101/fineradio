@@ -207,7 +207,7 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   })
 
-  // --- Restore saved playback position, works for both backends ---
+// --- Restore saved playback position, works for both backends ---
 wavesurfer.on('ready', () => {
   const raw = localStorage.getItem(STORAGE_KEY)
   const saved = parseFloat(raw)
@@ -217,6 +217,8 @@ wavesurfer.on('ready', () => {
   }
 
   console.log('💾 Found saved position fraction:', saved)
+
+  let poll // declare first so it exists in scope
 
   const trySeek = () => {
     const dur = wavesurfer.getDuration()
@@ -235,11 +237,9 @@ wavesurfer.on('ready', () => {
 
   // Run immediately and poll until duration appears
   trySeek()
-  const poll = setInterval(trySeek, 300)
+  poll = setInterval(trySeek, 300)
   setTimeout(() => clearInterval(poll), 20000)
 })
-
-
   
   // --- Save progress periodically ---
   let lastSave = 0 // timestamp of last save (ms)
