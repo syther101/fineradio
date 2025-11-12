@@ -146,99 +146,118 @@
     <img id="lightbox-img" src="" alt="">
   </div>
   
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-    const AUDIO_FILE = 'https://dl.dropboxusercontent.com/scl/fi/kquh0uw368eews9tyiwxa/erin.m4a?rlkey=y5bopb3shjajpgm4iu9w94sj3'
-    const STORAGE_KEY = 'audio-position-' + AUDIO_FILE
-    const loadingEl = document.getElementById('loading')
-    const playBtn = document.getElementById('playPause')
+  <script src="https://unpkg.com/wavesurfer.js@6"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const AUDIO_FILE =
+    'https://dl.dropboxusercontent.com/scl/fi/kquh0uw368eews9tyiwxa/erin.m4a?rlkey=y5bopb3shjajpgm4iu9w94sj3';
+  const STORAGE_KEY = 'audio-position-' + AUDIO_FILE;
+  const loadingEl = document.getElementById('loading');
+  const playBtn = document.getElementById('playPause');
 
-    const isModernSafari = (() => {
-      const ua = navigator.userAgent
-      const match = ua.match(/Version\/(\d+).+Safari/)
-      return match && parseInt(match[1], 10) >= 17
-    })()
-    
-    // Create the player
-    const wavesurfer = WaveSurfer.create({
-      container: '#waveform',
-      backend: isModernSafari ? 'WebAudio' : 'MediaElement',
-      waveColor: '#C0B4BD',
-      progressColor: '#4caf50',
-      height: 200,
-      responsive: true,
-      interact: true,
-    })
+  // Detect modern WebAudio support (use MediaElement fallback otherwise)
+  const testAudio = document.createElement('audio');
+  const canPlayAAC = !!testAudio.canPlayType('audio/mp4; codecs="mp4a.40.2"');
+  const supportsWebAudio = !!(window.AudioContext || window.webkitAudioContext);
+  const backend = supportsWebAudio && canPlayAAC ? 'WebAudio' : 'MediaElement';
 
-  // Resume AudioContext on first user interaction
-  const unlockEvents = ['touchstart', 'touchmove', 'click']
-  unlockEvents.forEach(evt => {
-    document.addEventListener(evt, () => {
-      const ctx = wavesurfer?.backend?.getAudioContext?.()
-      if (ctx && ctx.state === 'suspended') ctx.resume()
-    }, { passive: true, once: false })
-  })
+  // Create player
+  const wavesurfer = WaveSurfer.create({
+    container: '#waveform',
+    backend,
+    waveColor: '#C0B4BD',
+    progressColor: '#4caf50',
+    height: 200,
+    responsive: true,
+    interact: true,
+    partialRender: true, // faster for large files
+    minPxPerSec: 25,
+    normalize: false,
+  });
 
-    // Optional: improve realtime scrubbing on iOS
-    const wrapper = wavesurfer.drawer?.wrapper
-    if (wrapper) {
-      wrapper.addEventListener('touchmove', (e) => {
-        const rect = wrapper.getBoundingClientRect()
-        const x = e.touches[0].clientX - rect.left
-        const progress = Math.max(0, Math.min(1, x / rect.width))
-        wavesurfer.seekTo(progress)
-      })
+  // Resume AudioContext on first user gesture (Safari/iOS requirement)
+  ['touchstart', 'touchmove', 'click'].forEach(evt => {
+    document.addEventListener(
+      evt,
+      () => {
+        const ctx = wavesurfer?.backend?.getAudioContext?.();
+        if (ctx && ctx.state === 'suspended') ctx.resume();
+      },
+      { passive: true }
+    );
+  });
+
+  // Restore playback position once audio is actually ready
+  let saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0');
+  wavesurfer.on('ready', () => {
+    const mediaEl = wavesurfer.backend?.media;
+    if (mediaEl) {
+      mediaEl.addEventListener(
+        'canplay',
+        () => {
+          if (saved && !isNaN(saved)) wavesurfer.seekTo(saved);
+        },
+        { once: true }
+      );
+    } else if (saved && !isNaN(saved)) {
+      wavesurfer.seekTo(saved);
     }
-    
-    // Unlock audio context on user tap
-    document.addEventListener('touchstart', () => {
-      const ctx = wavesurfer.backend.getAudioContext?.()
-      if (ctx && ctx.state === 'suspended') ctx.resume()
-    }, { once: true })
+    hideLoader();
+  });
 
-    // Save playback progress every few seconds
-    wavesurfer.on('audioprocess', () => {
-      const position = wavesurfer.getCurrentTime() / wavesurfer.getDuration()
-      localStorage.setItem(STORAGE_KEY, position)
-    })
-
-    // Show loading indicator
-    wavesurfer.on('loading', (progress) => {
-      loadingEl.style.display = 'block'
-      loadingEl.textContent = `Loading audio… ${progress}%`
-    })
-    
-    // Hide when ready
-    // Function to safely hide loading
-    function hideLoader() {
-      loadingEl.style.display = 'none'
-      playBtn.disabled = false
-      const saved = localStorage.getItem(STORAGE_KEY)
-      if (saved) wavesurfer.seekTo(parseFloat(saved))
+  // Save progress periodically
+  wavesurfer.on('audioprocess', () => {
+    const dur = wavesurfer.getDuration();
+    if (dur) {
+      const pos = wavesurfer.getCurrentTime() / dur;
+      localStorage.setItem(STORAGE_KEY, pos.toString());
     }
+  });
 
-    // Hide when ready (for most browsers)
-    wavesurfer.on('ready', hideLoader)
-    
-    // Fallback for Safari if 'ready' never fires
-    wavesurfer.on('waveform-ready', hideLoader)
-    wavesurfer.on('decode', hideLoader)
-    
-    // Also listen to underlying audio element (MediaElement backend)
-    wavesurfer.on('play', () => {
-      hideLoader()
-    })
+  // Basic loading indicator
+  wavesurfer.on('loading', progress => {
+    if (!loadingEl) return;
+    loadingEl.style.display = 'block';
+    loadingEl.textContent = `Loading audio… ${Math.round(progress)}%`;
+  });
 
-    // Play/pause button
+  function hideLoader() {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (playBtn) playBtn.disabled = false;
+  }
+
+  // Handle play/pause
+  if (playBtn) {
     playBtn.addEventListener('click', () => {
-      wavesurfer.playPause()
-      playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
-    })
+      wavesurfer.playPause();
+      playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play';
+    });
+  }
 
-    // Load audio
-    wavesurfer.load(AUDIO_FILE)
-})
-  </script>
+  // Smooth visual scrubbing (safe for iOS)
+  const wrapper = wavesurfer.drawer?.wrapper;
+  if (wrapper) {
+    let touching = false;
+    wrapper.addEventListener('touchstart', () => (touching = true), { passive: true });
+    wrapper.addEventListener(
+      'touchend',
+      e => {
+        if (!touching) return;
+        touching = false;
+        const rect = wrapper.getBoundingClientRect();
+        const x = e.changedTouches[0].clientX - rect.left;
+        const progress = Math.max(0, Math.min(1, x / rect.width));
+        wavesurfer.seekTo(progress);
+      },
+      { passive: true }
+    );
+  }
+
+  // Load AAC audio file
+  wavesurfer.load(AUDIO_FILE);
+});
+</script>
+
 
   <script>
   const lightbox = document.getElementById('lightbox');
