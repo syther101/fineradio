@@ -146,7 +146,7 @@
   <div id="lightbox">
     <img id="lightbox-img" src="" alt="">
   </div>
-  
+
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const AUDIO_FILE = 'https://dl.dropboxusercontent.com/scl/fi/kquh0uw368eews9tyiwxa/erin.m4a?rlkey=y5bopb3shjajpgm4iu9w94sj3'
@@ -156,7 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const loadingEl = document.getElementById('loading')
   const playBtn = document.getElementById('playPause')
 
-  // --- Create player (force MediaElement backend for iOS stability) ---
+  // --- Create player ---
   const wavesurfer = WaveSurfer.create({
     container: '#waveform',
     backend: 'MediaElement',
@@ -168,7 +168,7 @@ document.addEventListener('DOMContentLoaded', () => {
     normalize: true,
   })
 
-  // --- Resume AudioContext on iOS user gesture (safety) ---
+  // --- Resume AudioContext on iOS ---
   ;['touchstart', 'touchmove', 'click'].forEach(evt => {
     document.addEventListener(evt, () => {
       const ctx = wavesurfer?.backend?.getAudioContext?.()
@@ -202,10 +202,11 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 
   // ==============================================================
-  //  SAVE + RESTORE POSITION (iOS-compatible)
+  //  SAVE + RESTORE POSITION (with visual pre-seek)
   // ==============================================================
-  let pendingSeek = null // queued seek fraction (0–1 or seconds)
+  let pendingSeek = null
   let lastSave = 0
+  let preSeekApplied = false
 
   // Queue saved position after waveform ready
   wavesurfer.on('ready', () => {
@@ -217,23 +218,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     pendingSeek = saved
     console.log('💾 Queued saved position:', pendingSeek)
+
+    // Visually show this position immediately (without actually seeking audio)
+    const frac = saved > 1 ? 0 : Math.min(Math.max(saved, 0), 1)
+    wavesurfer.drawer.progress(frac)
+    preSeekApplied = true
+    console.log(`🎨 Visually pre-seeked waveform to ${(frac * 100).toFixed(1)}%`)
   })
 
-  // Apply queued seek once playable (iOS-safe)
-  function applyPendingSeekOnce() {
+  // Apply pending seek once playable (iOS-safe)
+  function applyPendingSeekOnce(force = false) {
     if (pendingSeek == null) return
     const dur = wavesurfer.getDuration()
     if (!dur || !isFinite(dur) || dur <= 0) return
+
     const isSeconds = pendingSeek > 1
     const t = isSeconds ? pendingSeek : pendingSeek * dur
     const frac = Math.min(Math.max(t / dur, 0), 1)
-    console.log(`✅ Applying pending seek → ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
+    if (!force && preSeekApplied) {
+      console.log(`✅ Syncing real seek now at ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
+    } else {
+      console.log(`✅ Applying seek directly at ${t.toFixed(2)}s (${(frac*100).toFixed(1)}%)`)
+    }
     wavesurfer.seekTo(frac)
     pendingSeek = null
   }
 
-  wavesurfer.on('canplay', applyPendingSeekOnce)
-  wavesurfer.on('play', applyPendingSeekOnce)
+  wavesurfer.on('canplay', () => applyPendingSeekOnce(true))
+  wavesurfer.on('play', () => applyPendingSeekOnce(true))
 
   // Periodic save (every 5s)
   wavesurfer.on('audioprocess', () => {
@@ -255,8 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
   //  PLAY / PAUSE BUTTON
   // ==============================================================
   playBtn.addEventListener('click', () => {
-    // ensure pending seek applied before play
-    applyPendingSeekOnce()
+    applyPendingSeekOnce(true)
     wavesurfer.playPause()
     playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
   })
@@ -308,7 +319,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 })
 </script>
-
 
 
   <script>
