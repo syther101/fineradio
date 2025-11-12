@@ -213,30 +213,41 @@ wavesurfer.on('ready', () => {
   const saved = parseFloat(localStorage.getItem(STORAGE_KEY) || '0')
   if (!saved || isNaN(saved)) return
 
-  const mediaEl = wavesurfer.backend.media
-  if (!mediaEl) return
-
-  // Apply seek once the duration is known
-  const applySeek = () => {
-    const dur = mediaEl.duration
-    if (dur && isFinite(dur) && dur > 0) {
-      console.log('✅ Restoring position', saved)
-      wavesurfer.seekTo(saved)
-      clearInterval(checkInterval)
+  // Wait until backend + media element exist
+  const waitForMedia = () => {
+    const backend = wavesurfer.backend
+    const mediaEl = backend && backend.media
+    if (!mediaEl) {
+      // Backend not yet initialized, try again
+      setTimeout(waitForMedia, 200)
+      return
     }
+
+    // Function to apply seek when duration is available
+    const applySeek = () => {
+      const dur = mediaEl.duration
+      if (dur && isFinite(dur) && dur > 0) {
+        console.log('✅ Restoring position', saved)
+        wavesurfer.seekTo(saved)
+        clearInterval(checkInterval)
+      }
+    }
+
+    // Try immediately
+    applySeek()
+
+    // Keep retrying every 200 ms until duration appears
+    const checkInterval = setInterval(applySeek, 200)
+
+    // Also listen for media events that guarantee duration
+    mediaEl.addEventListener('loadedmetadata', applySeek, { once: true })
+    mediaEl.addEventListener('durationchange', applySeek, { once: true })
+    mediaEl.addEventListener('canplay', applySeek, { once: true })
   }
 
-  // Run immediately in case duration is already set
-  applySeek()
-
-  // Retry until duration becomes available
-  const checkInterval = setInterval(applySeek, 200)
-
-  // Extra safety: also run on metadata/duration events
-  mediaEl.addEventListener('loadedmetadata', applySeek, { once: true })
-  mediaEl.addEventListener('durationchange', applySeek, { once: true })
-  mediaEl.addEventListener('canplay', applySeek, { once: true })
+  waitForMedia()
 })
+
 
   // --- Save progress periodically ---
   wavesurfer.on('audioprocess', () => {
