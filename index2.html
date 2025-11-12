@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>fine radio</title>
+  <script src="https://unpkg.com/wavesurfer.js"></script>
+  <style>
+    body {
+      background: #2A2B2E;
+      font-family: sans-serif;
+      max-width: 800px;
+      margin-top: 3rem;
+      margin-left: auto;
+      margin-right: auto;
+      padding: 0 24px;
+    }
+
+    h1, h2 {
+      color: #FFE5FB;
+    }
+
+    p {
+      color: #C0B4BD;
+    }
+    
+    .description {
+      max-width: 800px;
+    }
+    
+    #waveform {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      touch-action: none; /* ensures touch scrubbing works */
+    }
+    #waveform:hover {
+      cursor: pointer;
+    }
+
+/* Simple centered loading indicator */
+#loading {
+  font-size: 1rem;
+  color: #C0B4BD;
+  text-align: center;
+  pointer-events: none;
+}
+
+    #loading::after {
+      content: " ";
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      border: 2px solid #aaa;
+      border-top: 2px solid transparent;
+      border-radius: 50%;
+      margin-left: 0.5em;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      font-size: 1rem;
+    }
+
+    .photo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+      width: 90%;
+      max-width: 1000px;
+      margin: 2rem auto;
+}
+
+  .photo-grid img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 8px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s ease;
+    cursor: pointer;
+  }
+  
+  .photo-grid img:hover {
+    transform: scale(1.05);
+  }
+
+    /* Lightbox overlay */
+    #lightbox {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    #lightbox img {
+      max-width: 90%;
+      max-height: 90%;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+    }
+
+  </style>
+</head>
+<body>
+
+  <h2>threemoretunes warmup set for cryptic - diessa : 07.06/2025</h2>
+  <p class="description">
+    a recording taken live on the night at ambitions graveyard. one of the first times i've had the chance to play this side of my music collection out of the house. deep and bubbly, spaced out with ramping energy and odd therapeutic respite. turned out to be one my favorite performances to date. hope you enjoy as much i did creating it :)
+    <br>
+    <br>
+    don't miss cryptics upcoming night with the elusive legend Shelly Parker on the 15th November.
+  </p>
+  <div id="loading">Loading audio…</div>
+  <div id="waveform"></div>
+  <button id="playPause" disabled>▶️ Play</button>
+
+  <h2>some photos of the night</h2>
+  <div class="photo-grid">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/n849vqxkub0daed7lgar0/DD76DE84-A4E4-44E6-9212-C0CA40EFEA16-42981-0000116E31863C0A.JPG?rlkey=kehp0udxjrk0fgfw3hzho27vm" alt="Photo 1">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/dxgb8w2vu2oapbmwurxhs/4FE2BFF2-A141-42C1-9869-8D6E624F850B-42981-0000116E0C16E0CA.JPG?rlkey=yimae2zwjigheh30vw9wxdd09" alt="Photo 2">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/mcf3oizf6j0n65iv2m7bi/ED622071-E0B2-4298-BD72-F5F080733CBA-42981-0000116DFFF4EE80.JPG?rlkey=4zbyv5sekh88k0ai9mqeamxqx" alt="Photo 3">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/9q38fio082j55b8v4oevs/9DBCFE42-F764-4E74-9372-D370DB124671-42981-0000116DF4625C3C.JPG?rlkey=votbngz69bbgc50wc2im9hcx6" alt="Photo 4">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/2mjfjnfhnnh2mu8ppr2qa/1D7C5CBD-563C-496A-B480-FD165335A1E0-42981-0000116DC7A34C59.JPG?rlkey=fh0rad6hwmvzexfwet42q6scz" alt="Photo 5">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/2u3rocot49u6l53kghfdi/429E699B-C1FC-4B30-B07B-12B5643675E4-42981-0000116D4FA217E2.JPG?rlkey=5o86pl4bxtdlhfyiudu5ralyo" alt="Photo 6">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/5rvpw9u99vjtbqwuly4xg/925E8C52-FCE4-4A2C-87B6-1DEA22C09FBB-42981-0000116D3F6557C2.JPG?rlkey=229gppqibuqtlg3ffv14r6goo" alt="Photo 7">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/du1ahgcap3cd39n38cfw9/B91C0D1C-EBF6-40D4-9AF9-8E6BF8380CE0-42981-0000116D2EC60825.JPG?rlkey=q9jnr9545hnceqsfjt6bs81w6" alt="Photo 8">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/g73rlupvsgwd7m9co8fr1/4B9726E9-119E-4EC6-8E27-BEBB27F50968-42981-0000116D1ED2D50A.JPG?rlkey=r4cqkqe44xr2iu1wxxkvrnbvm" alt="Photo 9">
+    <img src="https://dl.dropboxusercontent.com/scl/fi/n72x2uib2msb4jww0owb0/B61FB53F-1222-455E-BED4-C600FD3C1118-42981-0000116D10DDA519.JPG?rlkey=yssxzt8oufvqsvlo8p9tsq0p9" alt="Photo 10">
+  </div>
+
+  <!-- Lightbox overlay -->
+  <div id="lightbox">
+    <img id="lightbox-img" src="" alt="">
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+    const AUDIO_FILE = 'https://dl.dropboxusercontent.com/scl/fi/qjttn7jkikmd3gfecp5i6/erin.mp3?rlkey=idxh1wruerqzswjirlebitf2d'
+    const STORAGE_KEY = 'audio-position-' + AUDIO_FILE
+    const loadingEl = document.getElementById('loading')
+    const playBtn = document.getElementById('playPause')
+
+    const isModernSafari = (() => {
+      const ua = navigator.userAgent
+      const match = ua.match(/Version\/(\d+).+Safari/)
+      return match && parseInt(match[1], 10) >= 17
+    })()
+    
+    // Create the player
+    const wavesurfer = WaveSurfer.create({
+      container: '#waveform',
+      backend: isModernSafari ? 'WebAudio' : 'MediaElement',
+      waveColor: '#C0B4BD',
+      progressColor: '#4caf50',
+      height: 200,
+      responsive: true,
+      interact: true,
+    })
+
+  // Resume AudioContext on first user interaction
+  const unlockEvents = ['touchstart', 'touchmove', 'click']
+  unlockEvents.forEach(evt => {
+    document.addEventListener(evt, () => {
+      const ctx = wavesurfer?.backend?.getAudioContext?.()
+      if (ctx && ctx.state === 'suspended') ctx.resume()
+    }, { passive: true, once: false })
+  })
+
+    // Optional: improve realtime scrubbing on iOS
+    const wrapper = wavesurfer.drawer?.wrapper
+    if (wrapper) {
+      wrapper.addEventListener('touchmove', (e) => {
+        const rect = wrapper.getBoundingClientRect()
+        const x = e.touches[0].clientX - rect.left
+        const progress = Math.max(0, Math.min(1, x / rect.width))
+        wavesurfer.seekTo(progress)
+      })
+    }
+    
+    // Unlock audio context on user tap
+    document.addEventListener('touchstart', () => {
+      const ctx = wavesurfer.backend.getAudioContext?.()
+      if (ctx && ctx.state === 'suspended') ctx.resume()
+    }, { once: true })
+
+    // Save playback progress every few seconds
+    wavesurfer.on('audioprocess', () => {
+      const position = wavesurfer.getCurrentTime() / wavesurfer.getDuration()
+      localStorage.setItem(STORAGE_KEY, position)
+    })
+
+    // Show loading indicator
+    wavesurfer.on('loading', (progress) => {
+      loadingEl.style.display = 'block'
+      loadingEl.textContent = `Loading audio… ${progress}%`
+    })
+    
+    // Hide when ready
+    // Function to safely hide loading
+    function hideLoader() {
+      loadingEl.style.display = 'none'
+      playBtn.disabled = false
+      const saved = localStorage.getItem(STORAGE_KEY)
+      if (saved) wavesurfer.seekTo(parseFloat(saved))
+    }
+
+    // Hide when ready (for most browsers)
+    wavesurfer.on('ready', hideLoader)
+    
+    // Fallback for Safari if 'ready' never fires
+    wavesurfer.on('waveform-ready', hideLoader)
+    wavesurfer.on('decode', hideLoader)
+    
+    // Also listen to underlying audio element (MediaElement backend)
+    wavesurfer.on('play', () => {
+      hideLoader()
+    })
+
+    // Play/pause button
+    playBtn.addEventListener('click', () => {
+      wavesurfer.playPause()
+      playBtn.textContent = wavesurfer.isPlaying() ? '⏸ Pause' : '▶️ Play'
+    })
+
+    // Load audio
+    wavesurfer.load(AUDIO_FILE)
+})
+  </script>
+
+  <script>
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightbox-img');
+
+  document.querySelectorAll('.photo-grid img').forEach(img => {
+    img.addEventListener('click', () => {
+      lightboxImg.src = img.src;
+      lightbox.style.display = 'flex';
+    });
+  });
+
+  // Close lightbox when clicking anywhere outside the image
+  lightbox.addEventListener('click', (e) => {
+    if (e.target !== lightboxImg) {
+      lightbox.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
